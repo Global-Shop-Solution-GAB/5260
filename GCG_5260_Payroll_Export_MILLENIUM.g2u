@@ -1,0 +1,259 @@
+Program.Sub.ScreenSU.Start
+Gui.frmPyrl..Create
+Gui.frmPyrl..Caption("Payroll Export")
+Gui.frmPyrl..Size(5100,2295)
+Gui.frmPyrl..MinX(0)
+Gui.frmPyrl..MinY(0)
+Gui.frmPyrl..Position(0,0)
+Gui.frmPyrl..BackColor(-2147483633)
+Gui.frmPyrl..MousePointer(0)
+Gui.frmPyrl..maxbutton(False)
+Gui.frmPyrl..minbutton(False)
+Gui.frmPyrl..sizeable(False)
+Gui.frmPyrl..Event(UnLoad,frmPyrl_UnLoad)
+Gui.frmPyrl.lblBegDate.create(label,"Beginning Date",True,1935,255,1,195,240,True,0,Arial,8,-2147483633,0)
+Gui.frmPyrl.lblBegDate.defaultvalue("")
+Gui.frmPyrl.dpbegdate.create(datepicker)
+Gui.frmPyrl.dpbegdate.size(1380,285)
+Gui.frmPyrl.dpbegdate.position(195,570)
+Gui.frmPyrl.dpbegdate.defaultvalue("")
+Gui.frmPyrl.cmdOk.create(button)
+Gui.frmPyrl.cmdOk.caption("Ok")
+Gui.frmPyrl.cmdOk.size(855,375)
+Gui.frmPyrl.cmdOk.position(195,1215)
+Gui.frmPyrl.cmdOk.event(Click,cmdOk_Click)
+Gui.frmPyrl.cmdOk.defaultvalue("")
+Program.Sub.ScreenSU.End
+
+Program.Sub.Preflight.Start
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+'Customer: Complete Prototype Services
+'There is a need to create a payroll export for Millennium. This project will create the csv file
+'Run from custom menu item
+'Author: GaryB 
+'Date: 10/26/2018
+'GCG_5260_PAYROLL_EXPORT_MILLENIUM
+
+
+F.Intrinsic.Control.Try
+V.Local.sError.Declare(String)
+
+F.ODBC.Connection!conX.OpenCompanyConnection
+
+gui.frmPyrl..Show 
+
+F.Intrinsic.Control.Catch
+    F.Intrinsic.String.Build("Project: {0}{1}{1}Subroutine: {2}{1}Error Occurred {3} with description {4}{1}{1}GAB Version: {5}",V.Ambient.ScriptPath,V.Ambient.Newline,V.Ambient.CurrentSubroutine,V.Ambient.ErrorNumber,V.Ambient.ErrorDescription,V.Ambient.GABVersion,V.Local.sError)
+    F.Intrinsic.UI.Msgbox(V.Local.sError)   
+F.Intrinsic.Control.EndTry
+
+Program.Sub.Main.End
+
+Program.Sub.frmPyrl_Unload.Start
+F.Intrinsic.Control.Try
+V.Local.sError.Declare(String)
+
+F.ODBC.Connection!conx.Close
+f.Intrinsic.Control.End 
+
+F.Intrinsic.Control.Catch
+    F.Intrinsic.String.Build("Project: {0}{1}{1}Subroutine: {2}{1}Error Occurred {3} with description {4}{1}{1}GAB Version: {5}",V.Ambient.ScriptPath,V.Ambient.Newline,V.Ambient.CurrentSubroutine,V.Ambient.ErrorNumber,V.Ambient.ErrorDescription,V.Ambient.GABVersion,V.Local.sError)
+    F.Intrinsic.UI.Msgbox(V.Local.sError)    
+F.Intrinsic.Control.EndTry
+Program.Sub.frmPyrl_Unload.End
+
+Program.Sub.cmdOk_Click.Start
+F.Intrinsic.Control.Try
+V.Local.sError.Declare(String)
+V.Local.sSQL.Declare(string)
+V.Local.sQueryE01.Declare(string)
+V.Local.sQueryE01DT.Declare(string)
+V.Local.sQueryE02.Declare(string)
+V.Local.sbegdate.Declare(string)
+V.Local.senddate.Declare(string)
+V.Local.sQueryEMP.Declare(string)
+V.Local.sQueryShift.Declare(string)
+V.Local.sQueryAbsentee.Declare(string)
+v.Local.sQueryEmpPay.Declare(string)
+v.Local.sHold.Declare(string)
+v.Local.fTOT.Declare
+v.Local.sFld.Declare 
+v.Local.sType.Declare 
+v.Local.iCount.Declare(Long)
+v.Local.sFile.Declare(String)
+v.Local.sFileName.Declare(String)
+v.Local.sFullPath.Declare(String)
+v.Local.sDate.Declare(String)
+V.Local.bexists.Declare(Boolean)
+v.Local.rDate.Declare(Date)
+v.Local.sDateTimeIn.Declare(String)
+v.Local.sDateTimeOut.Declare(String)
+V.Local.sbegdate.Set(v.Screen.frmPyrl!dpbegdate.Value)
+v.Local.iDate.Declare(Long)
+v.Local.sEmployPrev.Declare(String)
+v.Local.sEmployCurr.Declare(String)
+v.Local.fHoursWorked.Declare(Float)
+v.Local.fSplitHours.Declare(Float)
+v.Local.fOver40.Declare(Boolean)
+v.Local.sSort.Declare(String)
+
+'their payroll week runs from Monday to Sunday, instead of them entering the ending date just add 6 to the start date
+f.Intrinsic.Date.DateAdd(D,6,v.Local.sbegdate,v.Local.senddate)
+
+'get employee info from time_attendance
+'two employees are temp employees, 81516, 81522 - do not include these
+'also in the future their temp employees will begin with 1xxxx so do not include them
+'employees starting at 90000 are computers and machines they have running, do not include these in the payroll file.
+f.Intrinsic.String.Build("Select '' as CHAR1, employee,'' as E,earnings_code,(HOURS_HH + (HOURS_MM/60)) as Hours,dollar_amt,'' as Rate,rec_type,'' as B8,'' as B9,'' as B10,'' as B11,'' as B12,''as B13,shift,convert(date_in,SQL_Char) as date_in,time_in,convert(date_out,SQL_Char) as date_out,time_out from v_time_attendance where employee < '90000' and employee > '19999' and employee <> '81516' and employee <> '81522' and CHARGE_DATE between '{0}' and '{1}' order by employee,date_in",v.Local.sbegdate.PervasiveDate,v.Local.senddate.PervasiveDate,v.Local.sQueryEmpPay)
+
+f.ODBC.Connection!conx.ExecuteandReturn(v.Local.sQueryEmpPay,v.Local.sHold)
+f.Data.DataTable.CreateFromSQL("DT","conX",v.Local.sQueryEmpPay,True)
+
+f.Intrinsic.Control.If(v.DataTable.DT.Rowcount,=,0)
+	F.Intrinsic.UI.Msgbox("No records found.","Payroll Export")
+	f.Data.DataTable.Close("DT")
+	f.Intrinsic.Control.ExitSub
+F.Intrinsic.Control.EndIf
+
+
+
+'the second column of the datatable needs to be an "E" for the export
+f.Data.DataTable.SetValue("DT",-1,"E","E")
+'f.Data.DataTable.SetValueFormat("DT",-1,"Date_In","Date_in",'MM/DD/YYYY')
+'f.Data.DataTable.SetValueFormat("DT",-1,"Date_Out","Date_Out",'MM/DD/YYYY')
+'f.Data.DataTable.AddExpressionColumn("DT","TimeIN","String","date_in + ' ' +  time_in")
+'f.Data.DataTable.AddExpressionColumn("DT","TimeOUT","String","date_out + ' ' +  time_out")
+'add 2 columns so I can combine the date_in + time_in   and the date_out + time_out fields
+f.Data.DataTable.AddColumn("DT","TimeIN","String")
+f.Data.DataTable.AddColumn("DT","TimeOUT","String")
+f.Data.DataTable.AddColumn("DT","SplitTime","Boolean")
+f.Data.DataTable.AddColumn("DT","Over40","Float")
+v.Local.sEmployPrev.Set(v.DataTable.DT(0).employee!FieldVal)
+'v.Local.fHoursworked.Set(v.DataTable.DT(0).hours!fieldVal)
+f.Intrinsic.Control.For(v.Local.iCount,0,v.DataTable.DT.RowCount--,1)
+'combine the date and time fields
+'earnings_code = 1 for regular time
+'earnings_code = 2 for time and one-half
+'earnings-code = 3 for double time
+'need to figure out what day Sunday is -  employee gets double time on Sunday  earnings code = 3 for double time
+  f.Intrinsic.Date.Weekday(v.DataTable.DT(v.Local.icount).date_in!FieldVal,v.Local.iDate)
+  f.Intrinsic.Control.If(v.Local.iDate,=,1)
+ '   f.Data.DataTable.SetValue("DT",v.Local.iCount,"Sunday","Y")
+    f.Data.DataTable.SetValue("DT",v.Local.iCount,"Earnings_code",3)
+  f.Intrinsic.Control.Else
+'need to sum up hours per employee id
+    v.Local.sEmployCurr.Set(v.DataTable.DT(v.Local.iCount).employee!FieldVal)
+    f.Intrinsic.Control.If(v.Local.sEmployPrev,=,v.Local.sEmployCurr)
+  
+      f.Intrinsic.Math.Add(v.DataTable.DT(v.Local.iCount).hours!Fieldval,v.Local.fHoursworked,v.Local.fHoursworked)
+      f.Intrinsic.Control.If(v.Local.fHoursworked,>,40)         
+          f.Intrinsic.Math.Sub(v.Local.fHoursWorked,40,v.Local.fSplitHours)
+          f.Intrinsic.Control.If(v.Local.fSplitHours,>,v.DataTable.DT(v.Local.iCount).hours!Fieldval)
+              f.Data.DataTable.SetValue("DT",v.Local.iCount,"Earnings_code",2)
+          f.Intrinsic.Control.Else
+             f.Data.DataTable.SetValue("DT",v.Local.iCount,"Over40",v.Local.fSplitHours)
+             f.Data.DataTable.SetValue("DT",v.Local.iCount,"Earnings_code",1)
+             f.Data.DataTable.SetValue("DT",v.Local.iCount,"SplitTime",True)
+'             f.Intrinsic.ui.Msgbox(v.Local.fHoursworked)
+          f.Intrinsic.Control.EndIf
+      f.Intrinsic.Control.Else           
+          f.Data.DataTable.SetValue("DT",v.Local.iCount,"Earnings_code",1)
+      f.Intrinsic.Control.EndIf
+'      f.Intrinsic.ui.Msgbox(v.Local.fHoursworked)
+     ' v.Local.fHoursworked.Set(v.DataTable.DT(v.Local.iCount).hours!fieldVal)
+    f.Intrinsic.Control.Else
+'      f.Intrinsic.UI.Msgbox("current is not = previous")
+       v.Local.sEmployPrev.Set(v.DataTable.DT(v.Local.iCount).employee!FieldVal)
+       v.Local.fHoursworked.Set(v.DataTable.DT(v.Local.iCount).hours!fieldVal)
+       f.Data.DataTable.SetValue("DT",v.Local.iCount,"Earnings_code",1)
+      'v.Local.fHoursworked.Set(0.0)
+      'f.Intrinsic.Math.Add(v.DataTable.DT(v.Local.iCount).hours!Fieldval,v.Local.fHoursworked,v.Local.fHoursworked)
+'      f.Intrinsic.UI.Msgbox(v.Local.fHoursworked)
+    f.Intrinsic.Control.EndIf
+  f.Intrinsic.Control.EndIf
+  
+  f.Intrinsic.String.Concat(v.DataTable.DT(v.Local.icount).date_in!FieldVal,'',v.Datatable.DT(v.Local.iCount).time_in!FieldVal,v.Local.sDateTimeIn)
+  f.Intrinsic.String.Replace(v.Local.sDateTimeIn,''," " ,v.Local.sDateTimeIn)
+  f.Data.DataTable.SetValue("DT",v.Local.iCount,"TimeIn","v.local.sDateTimeIn")
+
+  f.Intrinsic.String.Concat(v.DataTable.DT(v.Local.icount).date_out!FieldVal,'',v.Datatable.DT(v.Local.iCount).time_out!FieldVal,v.Local.sDateTimeOut)
+  f.Intrinsic.String.Replace(v.Local.sDateTimeOut,''," " ,v.Local.sDateTimeOut)
+  f.Data.DataTable.SetValue("DT",v.Local.iCount,"TimeOut","v.local.sDateTimeOut")
+
+f.Intrinsic.Control.Next(v.Local.icount)
+
+'f.Data.DataTable.RemoveColumn("DT","Sunday")
+'need to read thru datatable and take care of Over40 records
+'f.Intrinsic.Debug.InvokeDebugger
+'Function.Intrinsic.Debug.Stop
+f.Intrinsic.Control.For(v.Local.iCount,0,v.DataTable.DT.RowCount--,1)
+  f.Intrinsic.Control.If(v.DataTable.DT(v.Local.iCount).SplitTime!FieldVal,=,True)
+     v.Local.fSplitHours.Set(v.DataTable.DT(v.Local.iCount).Over40!fieldVal)
+'   f.Intrinsic.UI.Msgbox(v.Local.fSplitHours)
+     f.Intrinsic.Math.Sub(v.DataTable.DT(v.Local.iCount).hours!Fieldval,v.Local.fSplitHours,v.Local.fHoursWorked)
+     f.Data.DataTable.SetValue("DT",v.Local.iCount,"Hours",v.Local.fHoursWorked)
+     f.Data.DataTable.AddRow("DT","Employee",v.DataTable.DT(v.Local.iCount).employee!FieldVal,"E","E","Earnings_code",2,"hours",v.Local.fSplitHours,"dollar_amt",v.DataTable.DT(v.Local.iCount).dollar_amt!FieldVal,"rate",v.DataTable.DT(v.Local.iCount).rate!FieldVal,"rec_type",v.DataTable.DT(v.Local.iCount).rec_type!FieldVal,"B8","","B9","","B10","","B11","","B12","","B13","","shift",v.DataTable.DT(v.Local.iCount).shift!FieldVal,"timein",v.DataTable.DT(v.Local.iCount).timein!FieldVal,"timeout",v.DataTable.DT(v.Local.iCount).timeout!FieldVal)
+     f.Intrinsic.Math.Add(v.Local.iCount,1,v.Local.iCount)
+'     f.Intrinsic.UI.Msgbox(v.Local.fHoursWorked)
+  f.Intrinsic.Control.EndIf
+f.Intrinsic.Control.Next(v.Local.iCount)
+'remove the date and time fields since they are now stored in the datetimein and datetimeout fields
+f.Data.DataTable.RemoveColumn("DT","date_in")
+f.Data.DataTable.RemoveColumn("DT","time_in")
+f.Data.DataTable.RemoveColumn("DT","date_out")
+f.Data.DataTable.RemoveColumn("DT","time_out")
+f.Data.DataTable.RemoveColumn("DT","Over40")
+f.Data.DataTable.RemoveColumn("DT","SplitTime")
+f.Data.DataTable.SetValue("DT",-1,"CHAR1","@#$%^")
+
+'create a dataview to sort and sum up hours per employee and pay rate
+f.Data.DataView.Create("DT","DV")
+v.Local.sSort.Set("Employee ASC,Earnings_Code ASC")
+f.Data.DataView.SetSort("DT","DV",v.Local.sSort)
+f.Data.DataView.ToDataTableDistinct("DT","DV","DTNew","CHAR1*!*EMPLOYEE*!*E*!*EARNINGS_CODE")
+f.Data.DataTable.AddColumn("DtNew","Hours","Float")
+f.Intrinsic.Control.For(v.Local.iCount,0,v.DataTable.DTNew.RowCount--,1)
+   f.Intrinsic.String.Build("Employee = '{0}' AND Earnings_Code = '{1}'",v.DataTable.DTNew(v.Local.iCount).Employee!FieldVal,v.DataTable.DTNew(v.Local.iCount).Earnings_Code!FieldVal,v.Local.sSort)
+   f.Data.DataTable.Compute("DT","SUM(Hours)",v.Local.sSort, v.Local.fHoursWorked)
+   f.Data.DataTable.SetValue("DtNew",v.Local.iCount,"Hours",v.Local.fHoursWorked)
+F.Intrinsic.Control.Next(v.Local.iCount)
+f.Data.DataTable.AddColumn("DtNew","FormatHours","Float")
+f.Data.DataTable.SetValueFormat("DtNew",-1,"Hours","FormatHours","###.00")
+'F.Data.DataTable.AddColumn("DtNew","CHAR1","String")
+'f.Data.DataTable.SetValue("DTNew",-1,"CHAR1","@#$%^,")
+f.Data.DataView.Create("DtNew","DvNew")
+f.Data.DataView.ToString("DtNew","DvNew","CHAR1*!*Employee*!*E*!*Earnings_code*!*FormatHours",",",v.ambient.newline,v.local.sSort)
+f.Intrinsic.String.Replace(v.Local.sSort,"@#$%^,","1",v.Local.sSort)
+f.Intrinsic.String.Build("{0}\Millenium_Pyrl_Xport",v.Caller.FilesDir,v.Local.sfile)
+'see if the folder exists
+F.Intrinsic.File.Exists(V.Local.sfile,V.Local.bexists)
+'if the file doesn't exists create it
+F.Intrinsic.Control.If(V.Local.bexists,=,False)
+	F.Intrinsic.File.CreateDir(V.Local.sfile)
+F.Intrinsic.Control.EndIf
+'set the date and format it
+Function.Intrinsic.String.Format (V.Ambient.Date ,"MMDDYYYY",V.Local.sdate)
+
+'build the filename
+F.Intrinsic.String.Build("{0}.csv",V.Local.sDate,V.Local.sfilename)
+'build the full path
+F.Intrinsic.String.Build("{0}\{1}",V.local.sfile,V.Local.sfilename,V.Local.sfullpath)
+
+F.Intrinsic.File.String2File(V.Local.sfullpath,v.Local.sSort)
+'this line below creates the export file from the datatable
+'f.Data.DataTable.SaveToCSV("DTNew",v.Local.sFullPath,false)
+f.Intrinsic.UI.Msgbox("Payroll export file created at files\Millenium_Pyrl_Xport")
+F.Intrinsic.Control.Catch
+    F.Intrinsic.String.Build("Project: {0}{1}{1}Subroutine: {2}{1}Error Occurred {3} with description {4}{1}{1}GAB Version: {5}",V.Ambient.ScriptPath,V.Ambient.Newline,V.Ambient.CurrentSubroutine,V.Ambient.ErrorNumber,V.Ambient.ErrorDescription,V.Ambient.GABVersion,V.Local.sError)
+    F.Intrinsic.UI.Msgbox(V.Local.sError)    
+F.Intrinsic.Control.EndTry
+Program.Sub.cmdOk_Click.End
+
+Program.Sub.Comments.Start
+${$0$}$$}$$}$4/12/2017 3:38:35 PM$}$False
+${$3$}$0$}$$}$-1$}$-1$}$$}$1/1/1900$}$Original customer was SMS Millcraft.
+
+This is a re-write of the original script due to many inconsistencies with the original.
+Program.Sub.Comments.End
